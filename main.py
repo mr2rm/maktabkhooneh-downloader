@@ -7,6 +7,7 @@ from getopt import getopt
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from tqdm import trange
 
 CONTINUE = False
 
@@ -19,15 +20,16 @@ def download_course():
     soup = BeautifulSoup(response.content, 'html.parser')
     unit_elements = soup.find_all('a', attrs={'class': 'chapter__unit'})
 
-    for i, unit in enumerate(unit_elements, start=1):
-        filename = f'{i:02d}.mp4'
+    progress_bar_size = len(unit_elements)
+    for i in trange(progress_bar_size, desc=os.getenv('course_name'), mininterval=0):
+        filename = f'{i + 1:02d}.mp4'
         path = os.path.join(course_path, filename)
 
         if CONTINUE and os.path.isfile(path):
             continue
-        print(f'### Downloading {filename} ###')
 
-        unit_path = unit['href']
+        print(f'### Downloading {filename} ###')
+        unit_path = unit_elements[i]['href']
         response = requests.get(f"{os.getenv('base_url')}{unit_path}", headers={
             'Cookie': f"sessionid={os.getenv('session_id')};"
         })
