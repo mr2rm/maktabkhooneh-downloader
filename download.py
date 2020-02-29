@@ -14,6 +14,7 @@ BASE_URL = 'https://maktabkhooneh.org'
 course_url = None
 course_name = None
 resume = False
+untitled = False
 
 
 def download_course():
@@ -31,14 +32,20 @@ def download_course():
 
     progress_bar_size = len(unit_elements)
     for i in trange(progress_bar_size, desc=course_name, mininterval=0):
-        filename = f'{i + 1:02d}.mp4'
-        path = os.path.join(course_path, filename)
+        this_unit = unit_elements[i]
 
+        filename = f'{i + 1:02d}'
+        if not untitled:
+            unit_title = this_unit['title']
+            filename = f'{filename} - {unit_title}'
+        filename = f'{filename}.mp4'
+
+        path = os.path.join(course_path, filename)
         if resume and os.path.isfile(path):
             continue
 
         print(f'### Downloading {filename} ###')
-        unit_path = unit_elements[i]['href']
+        unit_path = this_unit['href']
         response = requests.get(f"{BASE_URL}{unit_path}", headers={
             'Cookie': f"sessionid={os.getenv('session_id')};"
         })
@@ -51,7 +58,7 @@ def download_course():
 
 
 if __name__ == '__main__':
-    opts, args = getopt(sys.argv[1:], 'l:n:r', ['link=', 'name=', 'resume'])
+    opts, args = getopt(sys.argv[1:], 'l:n:ru', ['link=', 'name=', 'resume', 'untitled'])
     for opt, arg in opts:
         if opt in ('-l', '--link'):
             course_url = arg
@@ -59,6 +66,8 @@ if __name__ == '__main__':
             course_name = arg
         elif opt in ('-r', '--resume'):
             resume = True
+        elif opt in ('-u', '--untitled'):
+            untitled = True
 
     load_dotenv(verbose=True)
     download_course()
