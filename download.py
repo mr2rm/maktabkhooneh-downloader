@@ -44,12 +44,14 @@ def download_course():
         if resume and os.path.isfile(path):
             continue
 
+        # TODO: remove and convert it to progress bar description
         print(f'### Downloading {filename} ###')
         unit_path = this_unit['href']
         response = requests.get(f"{BASE_URL}{unit_path}", headers={
             'Cookie': f"sessionid={os.getenv('session_id')};"
         })
         soup = BeautifulSoup(response.content, 'html.parser')
+        # TODO: check if token is valid
         download_link = soup.find('div', attrs={'class': 'unit-content--download'}).find('a')['href']
 
         response = requests.get(download_link)
@@ -68,6 +70,11 @@ if __name__ == '__main__':
             resume = True
         elif opt in ('-u', '--untitled'):
             untitled = True
+
+    if not course_url:
+        # TODO: check if link is valid
+        print("LinkError: 'link' argument is not provided")
+        sys.exit(0)
 
     load_dotenv(verbose=True)
     download_course()
