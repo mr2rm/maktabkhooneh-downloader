@@ -3,6 +3,7 @@
 import os
 import sys
 from getopt import getopt
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,6 +16,12 @@ course_url = None
 course_name = None
 resume = False
 untitled = False
+
+
+def is_valid_url(url):
+    parsed_url = urlparse(url)
+    validated_props = map(lambda p: hasattr(parsed_url, p), ['scheme', 'netloc', 'path'])
+    return all(validated_props)
 
 
 def download_course():
@@ -71,9 +78,15 @@ if __name__ == '__main__':
         elif opt in ('-u', '--untitled'):
             untitled = True
 
+    has_error = False
     if not course_url:
-        # TODO: check if link is valid
         print("LinkError: 'link' argument is not provided")
+        has_error = True
+    elif not is_valid_url(course_url):
+        print("LinkError: 'link' argument is not valid")
+        has_error = True
+
+    if has_error:
         sys.exit(0)
 
     load_dotenv(verbose=True)
