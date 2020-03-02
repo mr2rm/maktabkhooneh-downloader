@@ -20,7 +20,10 @@ untitled = False
 
 def is_valid_url(url):
     parsed_url = urlparse(url)
-    validated_props = map(lambda p: hasattr(parsed_url, p), ['scheme', 'netloc', 'path'])
+    validated_props = map(
+        lambda p: bool(getattr(parsed_url, p)),
+        ['scheme', 'netloc', 'path']
+    )
     return all(validated_props)
 
 
@@ -37,7 +40,7 @@ def download_course():
     course_path = os.path.join(os.getenv('base_dir'), course_name)
     os.makedirs(course_path, exist_ok=True)
 
-    progress_bar = trange(len(unit_elements))
+    progress_bar = trange(len(unit_elements), mininterval=0)
     for i in progress_bar:
         this_unit = unit_elements[i]
 
