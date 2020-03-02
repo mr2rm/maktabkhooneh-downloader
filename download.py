@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from tqdm import trange
+from tqdm import trange, tqdm
 
 BASE_URL = 'https://maktabkhooneh.org'
 
@@ -37,22 +37,22 @@ def download_course():
     course_path = os.path.join(os.getenv('base_dir'), course_name)
     os.makedirs(course_path, exist_ok=True)
 
-    progress_bar_size = len(unit_elements)
-    for i in trange(progress_bar_size, desc=course_name, mininterval=0):
+    progress_bar = trange(len(unit_elements))
+    for i in progress_bar:
         this_unit = unit_elements[i]
 
         filename = f'{i + 1:02d}'
+        progress_bar.set_description(f'Unit #{filename}')
+
         if not untitled:
             unit_title = this_unit['title']
-            filename = f'{filename} - {unit_title}'
+            filename = f'{filename}. {unit_title}'
         filename = f'{filename}.mp4'
 
         path = os.path.join(course_path, filename)
         if resume and os.path.isfile(path):
             continue
 
-        # TODO: remove and convert it to progress bar description
-        print(f'### Downloading {filename} ###')
         unit_path = this_unit['href']
         response = requests.get(f"{BASE_URL}{unit_path}", headers={
             'Cookie': f"sessionid={os.getenv('session_id')};"
