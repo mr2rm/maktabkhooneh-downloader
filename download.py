@@ -16,6 +16,7 @@ course_url = None
 course_name = None
 resume = False
 untitled = False
+fast = True
 
 
 def is_valid_url(url):
@@ -62,7 +63,13 @@ def download_course():
         })
         soup = BeautifulSoup(response.content, 'html.parser')
         # TODO: check if token is valid
-        download_link = soup.find('div', attrs={'class': 'unit-content--download'}).find('a')['href']
+
+        downloads = soup.find_all('div', attrs={'class': 'unit-content--download'})
+        if not downloads:
+            continue
+
+        idx = int(fast and len(downloads) > 1)
+        download_link = downloads[idx].find('a')['href']
 
         response = requests.get(download_link)
         with open(path, 'wb') as f:
@@ -70,7 +77,7 @@ def download_course():
 
 
 if __name__ == '__main__':
-    opts, args = getopt(sys.argv[1:], 'l:n:ru', ['link=', 'name=', 'resume', 'untitled'])
+    opts, args = getopt(sys.argv[1:], 'l:n:ruf', ['link=', 'name=', 'resume', 'untitled', 'fast'])
     for opt, arg in opts:
         if opt in ('-l', '--link'):
             course_url = arg
@@ -80,6 +87,8 @@ if __name__ == '__main__':
             resume = True
         elif opt in ('-u', '--untitled'):
             untitled = True
+        elif opt in ('-f', '--fast'):
+            fast = False
 
     has_error = False
     if not course_url:
