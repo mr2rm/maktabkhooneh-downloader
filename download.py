@@ -53,9 +53,9 @@ class ArgumentParser:
 
     def validate_course_url(self):
         if not self.course_url:
-            return self.get_error('UnsetLink')
+            return self.get_error('UnsetLinkError')
         if not self.is_valid_url(self.course_url):
-            return self.get_error('InvalidLink')
+            return self.get_error('InvalidLinkError')
 
     def parse(self):
         opts, args = getopt(self.args, self.short_options, self.long_options)
