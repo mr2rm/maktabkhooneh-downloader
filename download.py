@@ -8,53 +8,97 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from tqdm import trange, tqdm
+from tqdm import trange
 
 BASE_URL = 'https://maktabkhooneh.org'
 
-course_url = None
-course_name = None
-resume = False
-untitled = False
-fast = True
+
+# course_url = None
+# course_name = None
+# resume = False
+# untitled = False
+# fast = True
 
 
-def is_valid_url(url):
-    parsed_url = urlparse(url)
-    validated_props = map(
-        lambda p: bool(getattr(parsed_url, p)),
-        ['scheme', 'netloc', 'path']
-    )
-    return all(validated_props)
+class ArgumentParser:
+    short_options = 'l:n:ruf'
+    long_options = ['link=', 'name=', 'resume', 'untitled', 'fast']
+    error_messages = {
+        'UnsetLinkError': "'link' argument is not provided",
+        'InvalidLinkError': "'link' argument is not valid",
+    }
+
+    def __init__(self, args):
+        self.args = args
+        self.error = None
+        self.course_url = None
+        self.course_name = None
+        self.resume = False
+        self.untitled = False
+        self.fast = False
+
+    @staticmethod
+    def is_valid_url(url):
+        parsed_url = urlparse(url)
+        validated_props = map(
+            lambda p: bool(getattr(parsed_url, p)),
+            ['scheme', 'netloc', 'path']
+        )
+        return all(validated_props)
+
+    def get_error(self, error_key):
+        if error_key not in self.error_messages:
+            return
+        return f'{error_key}: {self.error_messages[error_key]}'
+
+    def validate_course_url(self):
+        if not self.course_url:
+            return self.get_error('UnsetLink')
+        if not self.is_valid_url(self.course_url):
+            return self.get_error('InvalidLink')
+
+    def parse(self):
+        opts, args = getopt(self.args, self.short_options, self.long_options)
+        for opt, arg in opts:
+            if opt in ('-l', '--link'):
+                self.course_url = arg
+            elif opt in ('-n', '--name'):
+                self.course_name = arg
+            elif opt in ('-r', '--resume'):
+                self.resume = True
+            elif opt in ('-u', '--untitled'):
+                self.untitled = True
+            elif opt in ('-f', '--fast'):
+                self.fast = False
+
+    def is_valid(self):
+        self.error = self.validate_course_url()
+        return not bool(self.error)
 
 
-def download_course():
-    global course_url, course_name, resume
-
-    response = requests.get(course_url)
+def download_course(args):
+    response = requests.get(args.course_url)
     soup = BeautifulSoup(response.content, 'html.parser')
+    units = soup.find_all('a', attrs={'class': 'chapter__unit'})
 
-    unit_elements = soup.find_all('a', attrs={'class': 'chapter__unit'})
-    if not course_name:
-        course_name = soup.find('h1', attrs={'class': 'course-content__title'}).text
-
+    course_name = args.course_name or soup.find('h1', attrs={'class': 'course-content__title'}).text
     course_path = os.path.join(os.getenv('base_dir'), course_name)
     os.makedirs(course_path, exist_ok=True)
 
-    progress_bar = trange(len(unit_elements), mininterval=0)
+    progress_bar = trange(len(units), mininterval=0)
     for i in progress_bar:
-        this_unit = unit_elements[i]
+        this_unit = units[i]
 
         filename = f'{i + 1:02d}'
         progress_bar.set_description(f'Unit #{filename}')
 
-        if not untitled:
+        if not args.untitled:
             unit_title = this_unit['title']
             filename = f'{filename}. {unit_title}'
         filename = f'{filename}.mp4'
 
         path = os.path.join(course_path, filename)
-        if resume and os.path.isfile(path):
+        if args.resume and os.path.isfile(path):
             continue
 
         unit_path = this_unit['href']
@@ -68,7 +112,7 @@ def download_course():
         if not downloads:
             continue
 
-        idx = int(fast and len(downloads) > 1)
+        idx = int(args.fast and len(downloads) > 1)
         download_link = downloads[idx].find('a')['href']
 
         response = requests.get(download_link)
@@ -77,29 +121,12 @@ def download_course():
 
 
 if __name__ == '__main__':
-    opts, args = getopt(sys.argv[1:], 'l:n:ruf', ['link=', 'name=', 'resume', 'untitled', 'fast'])
-    for opt, arg in opts:
-        if opt in ('-l', '--link'):
-            course_url = arg
-        elif opt in ('-n', '--name'):
-            course_name = arg
-        elif opt in ('-r', '--resume'):
-            resume = True
-        elif opt in ('-u', '--untitled'):
-            untitled = True
-        elif opt in ('-f', '--fast'):
-            fast = False
+    args = ArgumentParser(args=sys.argv[1:])
+    args.parse()
 
-    has_error = False
-    if not course_url:
-        print("LinkError: 'link' argument is not provided")
-        has_error = True
-    elif not is_valid_url(course_url):
-        print("LinkError: 'link' argument is not valid")
-        has_error = True
-
-    if has_error:
+    if not args.is_valid():
+        print(args.error)
         sys.exit(0)
 
     load_dotenv(verbose=True)
-    download_course()
+    download_course(args)
