@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 from getopt import getopt
 from urllib.parse import urlparse
 
@@ -76,6 +77,19 @@ class ArgumentParser:
 
 
 def download_course(args):
+    def clean_title(title):
+        pattern = ''.join(f'\\{c}' for c in r'\/:*?"<>|,;[].-، ')
+        title = re.sub(f'[{pattern}]', '_', title)
+        title = re.sub(r'_+', '_', title)
+        return title.strip('_')
+
+    def get_filename(unit, index):
+        filename = f'{index + 1:02d}'
+        if not args.untitled:
+            title = clean_title(unit['title'])
+            filename = f'{filename}_{title}'
+        return f'{filename}.mp4'
+
     response = requests.get(args.course_url)
     soup = BeautifulSoup(response.content, 'html.parser')
     units = soup.find_all('a', attrs={'class': 'chapter__unit'})
@@ -87,14 +101,8 @@ def download_course(args):
     progress_bar = trange(len(units), mininterval=0)
     for i in progress_bar:
         this_unit = units[i]
-
-        filename = f'{i + 1:02d}'
-        progress_bar.set_description(f'Unit #{filename}')
-
-        if not args.untitled:
-            unit_title = this_unit['title']
-            filename = f'{filename}. {unit_title}'
-        filename = f'{filename}.mp4'
+        progress_bar.set_description(f'Unit #{i + 1:02d}')
+        filename = get_filename(this_unit, i)
 
         path = os.path.join(course_path, filename)
         if args.resume and os.path.isfile(path):
