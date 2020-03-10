@@ -13,19 +13,13 @@ from tqdm import trange
 BASE_URL = 'https://maktabkhooneh.org'
 
 
-# course_url = None
-# course_name = None
-# resume = False
-# untitled = False
-# fast = True
-
-
 class ArgumentParser:
     short_options = 'l:n:ruf'
     long_options = ['link=', 'name=', 'resume', 'untitled', 'fast']
     error_messages = {
         'UnsetLinkError': "'link' argument is not provided",
         'InvalidLinkError': "'link' argument is not valid",
+        'InvalidTokenError': "'session_id' is not valid",
     }
 
     def __init__(self, args):
@@ -46,16 +40,16 @@ class ArgumentParser:
         )
         return all(validated_props)
 
-    def get_error(self, error_key):
-        if error_key not in self.error_messages:
-            return
-        return f'{error_key}: {self.error_messages[error_key]}'
+    def get_error(self, err_key):
+        if err_key not in self.error_messages:
+            return 'Oops!'
+        return f'{err_key}: {self.error_messages[err_key]}'
 
     def validate_course_url(self):
         if not self.course_url:
-            return self.get_error('UnsetLinkError')
+            return 'UnsetLinkError'
         if not self.is_valid_url(self.course_url):
-            return self.get_error('InvalidLinkError')
+            return 'InvalidLinkError'
 
     def parse(self):
         opts, args = getopt(self.args, self.short_options, self.long_options)
@@ -74,6 +68,11 @@ class ArgumentParser:
     def is_valid(self):
         self.error = self.validate_course_url()
         return not bool(self.error)
+
+    @staticmethod
+    def raise_error(message):
+        print(message)
+        sys.exit(1)
 
 
 def download_course(args):
@@ -106,16 +105,17 @@ def download_course(args):
             'Cookie': f"sessionid={os.getenv('session_id')};"
         })
         soup = BeautifulSoup(response.content, 'html.parser')
-        # TODO: check if token is valid
 
         downloads = soup.find_all('div', attrs={'class': 'unit-content--download'})
         if not downloads:
             continue
 
         idx = int(args.fast and len(downloads) > 1)
-        download_link = downloads[idx].find('a')['href']
+        download_link = downloads[idx].find('a')
+        if not download_link:
+            return 'InvalidTokenError'
 
-        response = requests.get(download_link)
+        response = requests.get(download_link['href'])
         with open(path, 'wb') as f:
             f.write(response.content)
 
@@ -125,8 +125,10 @@ if __name__ == '__main__':
     args.parse()
 
     if not args.is_valid():
-        print(args.error)
-        sys.exit(0)
+        args.raise_error(args.error)
 
     load_dotenv(verbose=True)
-    download_course(args)
+    error_code = download_course(args)
+    if error_code:
+        error = args.get_error(error_code)
+        args.raise_error(error)
